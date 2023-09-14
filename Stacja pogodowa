@@ -1,0 +1,49 @@
+import sqlite3
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+# Połączenie z bazą danych SQLite
+conn = sqlite3.connect('weather_data.db', check_same_thread=False)
+cursor = conn.cursor()
+
+# Utworzenie tabeli do przechowywania danych pogodowych (jeśli nie istnieje)
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS weather_data (
+    id INTEGER PRIMARY KEY,
+    temperature FLOAT,
+    pressure FLOAT,
+    wind_speed FLOAT,
+    wind_direction TEXT,
+    rainfall FLOAT,
+    humidity FLOAT
+)
+''')
+
+@app.route('/add_data', methods=['POST'])
+def add_data():
+    # Pobranie danych z żądania
+    data = request.json
+    temperature = data.get('temperature', 20.5)
+    pressure = data.get('pressure', 1013.2)
+    wind_speed = data.get('wind_speed', 5.5)
+    wind_direction = data.get('wind_direction', 'N')
+    rainfall = data.get('rainfall', 0.2)
+    humidity = data.get('humidity', 50.0)
+
+    # Dodawanie danych do bazy
+    cursor.execute("INSERT INTO weather_data (temperature, pressure, wind_speed, wind_direction, rainfall, humidity) VALUES (?, ?, ?, ?, ?, ?)",
+                   (temperature, pressure, wind_speed, wind_direction, rainfall, humidity))
+    conn.commit()
+    return jsonify(message="Data added successfully"), 200
+
+@app.route('/get_data', methods=['GET'])
+def get_data():
+    # Pobranie danych z bazy i przekazanie ich w formacie JSON
+    cursor.execute("SELECT * FROM weather_data ORDER BY id DESC LIMIT 10")
+    rows = cursor.fetchall()
+    data = [{"id": row[0], "temperature": row[1], "pressure": row[2], "wind_speed": row[3], "wind_direction": row[4], "rainfall": row[5], "humidity": row[6]} for row in rows]
+    return jsonify(data=data), 200
+
+if __name__ == "__main__":
+    app.run(debug=True)
